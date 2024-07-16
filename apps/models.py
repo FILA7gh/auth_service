@@ -6,7 +6,8 @@ from typing import Optional
 import jwt
 from fastapi.security import OAuth2PasswordBearer
 from passlib.context import CryptContext
-from sqlalchemy import Column, String, UUID
+from sqlalchemy import Column, String, UUID, Integer, ForeignKey
+from sqlalchemy.orm import relationship
 
 from apps.config import SECRET_KEY, ALGORITHM
 from apps.database import Base
@@ -44,8 +45,21 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 class User(Base):
     __tablename__ = 'users'
+
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4())
     username = Column(String)
     fullname = Column(String)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    forgot_password = relationship('UserForgotPassword', uselist=False, back_populates='user')
+
+
+class UserForgotPassword(Base):
+    __tablename__ = 'users_forgot_password'
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4())
+    username = Column(String)
+    code = Column(Integer)
+
+    user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'))
+    user = relationship('User', back_populates='forgot_password')

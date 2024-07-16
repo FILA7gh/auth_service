@@ -26,3 +26,7 @@ class UserUpdateSchema(BaseModel):
 class UserLoginSchema(BaseModel):
     username: str
     password: str
+
+
+class UserForgotPasswordScheme(BaseModel):
+    username: str

@@ -1,12 +1,13 @@
+import random
 from datetime import timedelta
 
 from fastapi import HTTPException, status
 from pydantic import UUID4
 
 from apps.config import ACCESS_TOKEN_EXPIRE_MINUTES
-from apps.models import User, authenticate_user, create_access_token, get_password_hash
+from apps.models import User, authenticate_user, create_access_token, get_password_hash, UserForgotPassword
 from apps.database import new_session
-from apps.schemas import UserGetSchema, UserCreateSchema, UserLoginSchema, UserUpdateSchema
+from apps.schemas import UserGetSchema, UserCreateSchema, UserLoginSchema, UserUpdateSchema, UserForgotPasswordScheme
 
 from sqlalchemy import select, or_
 
@@ -115,3 +116,26 @@ class UserService:
             access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
             access_token = create_access_token(data={'sub': user.username}, expires_delta=access_token_expires)
             return {'access_token': access_token, 'token_type': 'bearer'}
+
+    @classmethod
+    async def user_forgot_password(cls, username: UserForgotPasswordScheme) -> dict:
+        async with new_session() as session:
+            query = select(User).filter(User.username == username)
+            result = await session.execute(query)
+            user = result.scalars().all()
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='User not found!'
+                )
+            generated_code = random.randint(1000, 10000)
+            f_pw_query = select(UserForgotPassword).filter(UserForgotPassword.user_id == user.id)
+            result = await session.execute(f_pw_query)
+            forgot_pw = result.scalars().first()
+            if forgot_pw:
+                forgot_pw.code = generated_code
+            else:
+                forgot_pw = UserForgotPassword(username=username, code=generated_code, user_id=user.id)
+            session.add(forgot_pw)
+            await session.commit()
+            return {'code': generated_code}

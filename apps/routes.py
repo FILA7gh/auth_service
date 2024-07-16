@@ -3,7 +3,7 @@ from typing import Annotated
 
 from pydantic import UUID4
 
-from apps.schemas import UserCreateSchema, UserLoginSchema, UserUpdateSchema
+from apps.schemas import UserCreateSchema, UserLoginSchema, UserUpdateSchema, UserForgotPasswordScheme
 from apps.services import UserService
 
 user_router = APIRouter(prefix='/users', tags=['users'])
@@ -43,3 +43,9 @@ async def delete_user(user_id: UUID4):
 async def user_login(user_data: Annotated[UserLoginSchema, Depends()]):
     result = await UserService.user_login(user_data)
     return result
+
+
+@user_router.post('/forgot_password')
+async def user_forgot_password(username: Annotated[UserForgotPasswordScheme, Depends()]):
+    code = await UserService.user_forgot_password(username)
+    return code
