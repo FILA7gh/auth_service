@@ -33,7 +33,7 @@ def downgrade() -> None:
     sa.Column('username', sa.VARCHAR(), autoincrement=False, nullable=True),
     sa.Column('fullname', sa.VARCHAR(), autoincrement=False, nullable=True),
     sa.Column('email', sa.VARCHAR(), autoincrement=False, nullable=True),
-    sa.Column('password', sa.VARCHAR(), autoincrement=False, nullable=True),
+    sa.Column('hashed_password', sa.VARCHAR(), autoincrement=False, nullable=True),
     sa.PrimaryKeyConstraint('user_id', name='users_pkey')
     )
     op.create_index('ix_users_user_id', 'users', ['user_id'], unique=False)

@@ -1,7 +1,9 @@
 from fastapi import APIRouter, Depends
 from typing import Annotated
 
-from apps.schemas import UserCreateSchema, UserLoginSchema
+from pydantic import UUID4
+
+from apps.schemas import UserCreateSchema, UserLoginSchema, UserUpdateSchema
 from apps.services import UserService
 
 user_router = APIRouter(prefix='/users', tags=['users'])
@@ -13,10 +15,28 @@ async def get_all_users():
     return users
 
 
+@user_router.get('/<uuid:user_id>')
+async def get_user_by_id(user_id: UUID4):
+    user = await UserService.get_user_by_id(user_id)
+    return user
+
+
 @user_router.post('')
 async def create_user(user: Annotated[UserCreateSchema, Depends()]):
     user = await UserService.create_user(user)
     return user
+
+
+@user_router.put('/<uuid:user_id>')
+async def update_user(user_id: UUID4, user: Annotated[UserUpdateSchema, Depends()]):
+    updated_user = await UserService.update_user(user_id, user)
+    return updated_user
+
+
+@user_router.delete('/<uuid:user_id>')
+async def delete_user(user_id: UUID4):
+    deleted_user = await UserService.delete_user(user_id)
+    return deleted_user
 
 
 @user_router.post('/login')

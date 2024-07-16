@@ -2,14 +2,14 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from apps.database import create_tables
 from apps.routes import user_router
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    print('apps is started')
+    await create_tables()
     yield
-    print('power off')
 
 app = FastAPI(lifespan=lifespan)
 

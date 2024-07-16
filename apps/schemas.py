@@ -1,8 +1,15 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, UUID4
+
+
+class UserCreateSchema(BaseModel):
+    username: str
+    fullname: str
+    email: str
+    password: str
 
 
 class UserGetSchema(BaseModel):
-    user_id: int
+    id: UUID4
     username: str
     fullname: str
     email: str
@@ -10,8 +17,10 @@ class UserGetSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
-class UserCreateSchema(UserGetSchema):
-    password: str
+class UserUpdateSchema(BaseModel):
+    username: str
+    fullname: str
+    email: str
 
 
 class UserLoginSchema(BaseModel):
