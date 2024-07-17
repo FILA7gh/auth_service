@@ -3,10 +3,12 @@ from typing import Annotated
 
 from pydantic import UUID4
 
-from apps.schemas import UserCreateSchema, UserLoginSchema, UserUpdateSchema, UserForgotPasswordScheme
-from apps.services import UserService
+from apps.schemas import UserCreateSchema, UserLoginSchema, UserUpdateSchema, UserForgotPasswordScheme, \
+    UserPasswordReset
+from apps.services import UserService, UserForgotPWService
 
 user_router = APIRouter(prefix='/users', tags=['users'])
+user_forgot_pw_router = APIRouter(prefix='/users_forgot_pw', tags=['users_forgot_passwords'])
 
 
 @user_router.get('')
@@ -49,3 +51,15 @@ async def user_login(user_data: Annotated[UserLoginSchema, Depends()]):
 async def user_forgot_password(username: Annotated[UserForgotPasswordScheme, Depends()]):
     code = await UserService.user_forgot_password(username)
     return code
+
+
+@user_router.post('/reset_password')
+async def reset_password(data: Annotated[UserPasswordReset, Depends()]):
+    data = await UserService.password_reset(data)
+    return data
+
+
+@user_forgot_pw_router.get('')
+async def get_all_users_forgot_pw():
+    forgot_pw_users = await UserForgotPWService.user_forgot_pw_get_all()
+    return forgot_pw_users

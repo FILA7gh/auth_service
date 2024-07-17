@@ -5,9 +5,10 @@ from fastapi import HTTPException, status
 from pydantic import UUID4
 
 from apps.config import ACCESS_TOKEN_EXPIRE_MINUTES
-from apps.models import User, authenticate_user, create_access_token, get_password_hash, UserForgotPassword
+from apps.models import User, UserForgotPassword
 from apps.database import new_session
-from apps.schemas import UserGetSchema, UserCreateSchema, UserLoginSchema, UserUpdateSchema, UserForgotPasswordScheme
+from apps.schemas import UserGetSchema, UserCreateSchema, UserLoginSchema, UserUpdateSchema, UserForgotPasswordScheme, \
+    UserForgotPWSGetScheme, UserPasswordReset
 
 from sqlalchemy import select, or_
 
@@ -49,7 +50,7 @@ class UserService:
                 )
             password = data_dict.pop('password')
             user = User(**data_dict)
-            user.hashed_password = get_password_hash(password)
+            user.hashed_password = user.get_password_hash(password)
             session.add(user)
             await session.commit()
             return {'message': 'user is created successfully'}
@@ -105,7 +106,7 @@ class UserService:
             query = select(User).filter(User.username == data_dict['username'])
             result = await session.execute(query)
             user = result.scalars().first()
-            authenticated_user = authenticate_user(user, data_dict['password'])
+            authenticated_user = user.authenticate_user(user, data_dict['password'])
 
             if not authenticated_user:
                 raise HTTPException(
@@ -114,15 +115,16 @@ class UserService:
                     headers={'WWW-Authenticate': 'Bearer'}
                 )
             access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-            access_token = create_access_token(data={'sub': user.username}, expires_delta=access_token_expires)
+            access_token = user.create_access_token(data={'sub': user.username}, expires_delta=access_token_expires)
             return {'access_token': access_token, 'token_type': 'bearer'}
 
     @classmethod
-    async def user_forgot_password(cls, username: UserForgotPasswordScheme) -> dict:
+    async def user_forgot_password(cls, data: UserForgotPasswordScheme) -> dict:
         async with new_session() as session:
-            query = select(User).filter(User.username == username)
+            data_dict = data.model_dump()
+            query = select(User).filter(User.username == data_dict['username'])
             result = await session.execute(query)
-            user = result.scalars().all()
+            user = result.scalars().first()
             if not user:
                 raise HTTPException(
                     status_code=status.HTTP_404_NOT_FOUND,
@@ -135,7 +137,46 @@ class UserService:
             if forgot_pw:
                 forgot_pw.code = generated_code
             else:
-                forgot_pw = UserForgotPassword(username=username, code=generated_code, user_id=user.id)
+                forgot_pw = UserForgotPassword(username=data_dict['username'], code=generated_code, user_id=user.id)
             session.add(forgot_pw)
             await session.commit()
             return {'code': generated_code}
+
+    @classmethod
+    async def password_reset(cls, data: UserPasswordReset):
+        async with new_session() as session:
+            data_dict = data.model_dump()
+            query = select(UserForgotPassword).filter(UserForgotPassword.username == data_dict['username'],
+                                                      UserForgotPassword.code == data_dict['code'])
+            result = await session.execute(query)
+            user_f_pw = result.scalars().first()
+            if not user_f_pw:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='User not found!'
+                )
+            if data_dict['password'] != data_dict['repeated_password']:
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail='Passwords is not similar!'
+                )
+            user_query = select(User).filter(User.id == user_f_pw.user_id)
+            result = await session.execute(user_query)
+            user = result.scalars().first()
+            user.hashed_password = user.get_password_hash(data_dict['password'])
+            session.add(user)
+            await session.commit()
+            return {'message': 'password is changed successfully'}
+
+
+class UserForgotPWService:
+    @classmethod
+    async def user_forgot_pw_get_all(cls) -> list:
+        async with new_session() as session:
+            query = select(UserForgotPassword)
+            result = await session.execute(query)
+            users_forgotten = result.scalars().all()
+            users_forgotten_schemes = [
+                UserForgotPWSGetScheme.model_validate(user_forgot) for user_forgot in users_forgotten
+            ]
+            return users_forgotten_schemes

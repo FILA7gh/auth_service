@@ -16,50 +16,50 @@ pwd_context = CryptContext(schemes=['bcrypt'], deprecated='auto')
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-
-def authenticate_user(user, password):
-    if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
-
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
-    to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
-    to_encode.update({'exp': expire})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
-
-
 class User(Base):
     __tablename__ = 'users'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4())
-    username = Column(String)
-    fullname = Column(String)
-    email = Column(String, unique=True, index=True)
-    hashed_password = Column(String)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username = Column(String(100), nullable=False)
+    fullname = Column(String(100), nullable=False)
+    email = Column(String(100), unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
     forgot_password = relationship('UserForgotPassword', uselist=False, back_populates='user')
+
+    @classmethod
+    def get_password_hash(cls, password):
+        return pwd_context.hash(password)
+
+    @classmethod
+    def verify_password(cls, plain_password, hashed_password):
+        return pwd_context.verify(plain_password, hashed_password)
+
+    @classmethod
+    def authenticate_user(cls, user, password):
+        if not user:
+            return False
+        if not cls.verify_password(password, user.hashed_password):
+            return False
+        return user
+
+    @classmethod
+    def create_access_token(cls, data: dict, expires_delta: Optional[timedelta] = None):
+        to_encode = data.copy()
+        if expires_delta:
+            expire = datetime.utcnow() + expires_delta
+        else:
+            expire = datetime.utcnow() + timedelta(minutes=15)
+        to_encode.update({'exp': expire})
+        encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+        return encoded_jwt
 
 
 class UserForgotPassword(Base):
     __tablename__ = 'users_forgot_password'
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4())
-    username = Column(String)
-    code = Column(Integer)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    username = Column(String(100), nullable=False)
+    code = Column(Integer, nullable=False)
 
     user_id = Column(UUID(as_uuid=True), ForeignKey('users.id'))
     user = relationship('User', back_populates='forgot_password')
