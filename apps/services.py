@@ -1,8 +1,11 @@
 import random
 from datetime import timedelta
+from typing import List
 
 from fastapi import HTTPException, status
+from fastapi.encoders import jsonable_encoder
 from pydantic import UUID4
+from starlette.responses import JSONResponse
 
 from apps.config import ACCESS_TOKEN_EXPIRE_MINUTES
 from apps.models import User, UserForgotPassword
@@ -15,7 +18,7 @@ from sqlalchemy import select, or_
 
 class UserService:
     @classmethod
-    async def get_user_by_id(cls, user_id: UUID4):
+    async def get_user_by_id(cls, user_id: UUID4) -> UserGetSchema:
         async with new_session() as session:
             query = select(User).filter(User.id == user_id)
             result = await session.execute(query)
@@ -29,7 +32,7 @@ class UserService:
             return user_schema
 
     @classmethod
-    async def get_users(cls) -> list:
+    async def get_users(cls) -> List[UserGetSchema]:
         async with new_session() as session:
             query = select(User)
             result = await session.execute(query)
@@ -38,7 +41,7 @@ class UserService:
             return user_schemas
 
     @classmethod
-    async def create_user(cls, data: UserCreateSchema) -> dict:
+    async def create_user(cls, data: UserCreateSchema) -> None:
         async with new_session() as session:
             data_dict = data.model_dump()
             query = select(User).filter(or_(User.username == data_dict['username'], User.email == data_dict['email']))
@@ -53,10 +56,10 @@ class UserService:
             user.hashed_password = user.get_password_hash(password)
             session.add(user)
             await session.commit()
-            return {'message': 'user is created successfully'}
+            return None
 
     @classmethod
-    async def update_user(cls, user_id: UUID4, data: UserUpdateSchema) -> dict:
+    async def update_user(cls, user_id: UUID4, data: UserUpdateSchema) -> None:
         async with new_session() as session:
             query = select(User).filter(User.id == user_id)
             result = await session.execute(query)
@@ -82,10 +85,10 @@ class UserService:
 
             session.add(user)
             await session.commit()
-            return {'message': 'user updated successfully!'}
+            return None
 
     @classmethod
-    async def delete_user(cls, user_id: UUID4) -> dict:
+    async def delete_user(cls, user_id: UUID4) -> None:
         async with new_session() as session:
             query = select(User).filter(User.id == user_id)
             result = await session.execute(query)
@@ -97,15 +100,16 @@ class UserService:
                 )
             await session.delete(user)
             await session.commit()
-            return {'message': 'User deleted successfully'}
+            return None
 
     @classmethod
-    async def user_login(cls, data: UserLoginSchema) -> dict:
+    async def user_login(cls, data: UserLoginSchema) -> str:
         async with new_session() as session:
             data_dict = data.model_dump()
             query = select(User).filter(User.username == data_dict['username'])
             result = await session.execute(query)
             user = result.scalars().first()
+            user_json = jsonable_encoder(user)
             authenticated_user = user.authenticate_user(user, data_dict['password'])
 
             if not authenticated_user:
@@ -115,11 +119,14 @@ class UserService:
                     headers={'WWW-Authenticate': 'Bearer'}
                 )
             access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-            access_token = user.create_access_token(data={'sub': user.username}, expires_delta=access_token_expires)
-            return {'access_token': access_token, 'token_type': 'bearer'}
+            access_token = user.create_access_token(
+                data={'sub': user_json['username'], 'user_id': user_json['id']},
+                expires_delta=access_token_expires
+            )
+            return access_token
 
     @classmethod
-    async def user_forgot_password(cls, data: UserForgotPasswordScheme) -> dict:
+    async def user_forgot_password(cls, data: UserForgotPasswordScheme) -> int:
         async with new_session() as session:
             data_dict = data.model_dump()
             query = select(User).filter(User.username == data_dict['username'])
@@ -140,10 +147,10 @@ class UserService:
                 forgot_pw = UserForgotPassword(username=data_dict['username'], code=generated_code, user_id=user.id)
             session.add(forgot_pw)
             await session.commit()
-            return {'code': generated_code}
+            return generated_code
 
     @classmethod
-    async def password_reset(cls, data: UserPasswordReset):
+    async def password_reset(cls, data: UserPasswordReset) -> None:
         async with new_session() as session:
             data_dict = data.model_dump()
             query = select(UserForgotPassword).filter(UserForgotPassword.username == data_dict['username'],
@@ -166,12 +173,12 @@ class UserService:
             user.hashed_password = user.get_password_hash(data_dict['password'])
             session.add(user)
             await session.commit()
-            return {'message': 'password is changed successfully'}
+            return None
 
 
 class UserForgotPWService:
     @classmethod
-    async def user_forgot_pw_get_all(cls) -> list:
+    async def user_forgot_pw_get_all(cls) -> List[UserForgotPWSGetScheme]:
         async with new_session() as session:
             query = select(UserForgotPassword)
             result = await session.execute(query)

@@ -11,7 +11,10 @@ async def lifespan(app: FastAPI):
     await create_tables()
     yield
 
-app = FastAPI(lifespan=lifespan)
+app = FastAPI(
+    lifespan=lifespan,
+    title='auth service'
+)
 
 app.include_router(router=user_router)
 app.include_router(router=user_forgot_pw_router)
