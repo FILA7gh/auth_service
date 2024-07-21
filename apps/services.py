@@ -5,13 +5,12 @@ from typing import List
 from fastapi import HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from pydantic import UUID4
-from starlette.responses import JSONResponse
 
 from apps.config import ACCESS_TOKEN_EXPIRE_MINUTES
 from apps.models import User, UserForgotPassword
 from apps.database import new_session
-from apps.schemas import UserGetSchema, UserCreateSchema, UserLoginSchema, UserUpdateSchema, UserForgotPasswordScheme, \
-    UserForgotPWSGetScheme, UserPasswordReset
+from apps.schemas import UserGetSchema, UserCreateSchema, UserLoginSchema, UserUpdateSchema, UserForgotPasswordSchema, \
+    UserForgotPWSGetSchema, UserPasswordResetSchema
 
 from sqlalchemy import select, or_
 
@@ -109,6 +108,11 @@ class UserService:
             query = select(User).filter(User.username == data_dict['username'])
             result = await session.execute(query)
             user = result.scalars().first()
+            if not user:
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail='User not found!'
+                )
             user_json = jsonable_encoder(user)
             authenticated_user = user.authenticate_user(user, data_dict['password'])
 
@@ -126,7 +130,7 @@ class UserService:
             return access_token
 
     @classmethod
-    async def user_forgot_password(cls, data: UserForgotPasswordScheme) -> int:
+    async def user_forgot_password(cls, data: UserForgotPasswordSchema) -> int:
         async with new_session() as session:
             data_dict = data.model_dump()
             query = select(User).filter(User.username == data_dict['username'])
@@ -150,7 +154,7 @@ class UserService:
             return generated_code
 
     @classmethod
-    async def password_reset(cls, data: UserPasswordReset) -> None:
+    async def password_reset(cls, data: UserPasswordResetSchema) -> None:
         async with new_session() as session:
             data_dict = data.model_dump()
             query = select(UserForgotPassword).filter(UserForgotPassword.username == data_dict['username'],
@@ -178,12 +182,12 @@ class UserService:
 
 class UserForgotPWService:
     @classmethod
-    async def user_forgot_pw_get_all(cls) -> List[UserForgotPWSGetScheme]:
+    async def user_forgot_pw_get_all(cls) -> List[UserForgotPWSGetSchema]:
         async with new_session() as session:
             query = select(UserForgotPassword)
             result = await session.execute(query)
             users_forgotten = result.scalars().all()
             users_forgotten_schemes = [
-                UserForgotPWSGetScheme.model_validate(user_forgot) for user_forgot in users_forgotten
+                UserForgotPWSGetSchema.model_validate(user_forgot) for user_forgot in users_forgotten
             ]
             return users_forgotten_schemes

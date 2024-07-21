@@ -28,21 +28,25 @@ class UserLoginSchema(BaseModel):
     password: str
 
 
-class UserForgotPasswordScheme(BaseModel):
+class UserForgotPasswordSchema(BaseModel):
     username: str
 
 
-class UserPasswordReset(BaseModel):
+class UserPasswordResetSchema(BaseModel):
     username: str
     code: int
     password: str
     repeated_password: str
 
 
-class UserForgotPWSGetScheme(BaseModel):
+class UserForgotPWSGetSchema(BaseModel):
     id: UUID4
     username: str
     code: int
     user_id: UUID4
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class MessageSchema(BaseModel):
+    text: str
